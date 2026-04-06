@@ -1,5 +1,5 @@
 {
-  "name": "llm-schema",
+  "name": "typed-llm",
   "version": "0.1.0",
   "description": "Reliably typed LLM outputs — schema definition, coercion, parsing, retry, and streaming for any LLM provider",
   "type": "module",
@@ -32,7 +32,7 @@
     "validation",
     "streaming"
   ],
-  "author": "",
+  "author": "Rumen Manev",
   "license": "MIT",
   "devDependencies": {
     "tsdown": "^0.11.0",
