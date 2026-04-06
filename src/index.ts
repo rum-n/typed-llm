@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// llm-schema — public API
+// typed-llm — public API
 // ---------------------------------------------------------------------------
 
 // Schema definition
@@ -46,4 +46,8 @@ export { withRetry } from "./retry/withRetry.js";
 export type { RetryOptions } from "./retry/withRetry.js";
 
 // Streaming
-export { anthropicStream, openAIStream, parseStream } from "./stream/parseStream.js";
+export {
+  anthropicStream,
+  openAIStream,
+  parseStream,
+} from "./stream/parseStream.js";

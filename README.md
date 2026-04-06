@@ -1,25 +1,25 @@
-# llm-schema
+# typed-llm
 
 **Reliably typed outputs from any LLM API.**
 
-LLMs are powerful but unpredictable: they return strings instead of numbers, miss required fields, wrap JSON in markdown, and sometimes produce nonsense. `llm-schema` is a small TypeScript toolkit — inspired by Python's [Instructor](https://github.com/jxnl/instructor) — that puts a typed, validated, coercible layer between your code and the raw LLM output. Define your expected shape once, get back a fully typed result or structured errors, with built-in retry and streaming support.
+LLMs are powerful but unpredictable: they return strings instead of numbers, miss required fields, wrap JSON in markdown, and sometimes produce nonsense. `typed-llm` is a small TypeScript toolkit — inspired by Python's [Instructor](https://github.com/jxnl/instructor) — that puts a typed, validated, coercible layer between your code and the raw LLM output. Define your expected shape once, get back a fully typed result or structured errors, with built-in retry and streaming support.
 
 ---
 
 ## Installation
 
 ```bash
-npm install llm-schema
+npm install typed-llm
 ```
 
-`llm-schema` has no required runtime dependencies. It works with any LLM provider.
+`typed-llm` has no required runtime dependencies. It works with any LLM provider.
 
 ---
 
 ## Quickstart
 
 ```ts
-import { defineOutput, t, buildPrompt, parse, withRetry } from "llm-schema";
+import { defineOutput, t, buildPrompt, parse, withRetry } from "typed-llm";
 import OpenAI from "openai";
 
 // 1. Define your expected shape — TypeScript type is inferred automatically
@@ -44,7 +44,12 @@ const result = await withRetry(
     client.chat.completions
       .create({
         model: "gpt-4o-mini",
-        messages: [{ role: "user", content: buildPrompt(userPrompt, ArticleSchema, feedback) }],
+        messages: [
+          {
+            role: "user",
+            content: buildPrompt(userPrompt, ArticleSchema, feedback),
+          },
+        ],
       })
       .then((r) => r.choices[0]?.message.content ?? ""),
   ArticleSchema,
@@ -84,15 +89,15 @@ type MyType = InferOutput<typeof Schema>;
 
 ### Field builders — `t.*`
 
-| Builder | TypeScript type | Notes |
-|---|---|---|
-| `t.string()` | `string` | |
-| `t.number()` | `number` | |
-| `t.boolean()` | `boolean` | |
-| `t.union(["a","b"] as const)` | `"a" \| "b"` | Validates membership |
-| `t.array(t.string())` | `string[]` | Nested field builders supported |
-| `t.object({ ... })` | `{ ... }` | Nested objects |
-| `t.optional(t.string())` | `string \| undefined` | Field may be absent |
+| Builder                       | TypeScript type       | Notes                           |
+| ----------------------------- | --------------------- | ------------------------------- |
+| `t.string()`                  | `string`              |                                 |
+| `t.number()`                  | `number`              |                                 |
+| `t.boolean()`                 | `boolean`             |                                 |
+| `t.union(["a","b"] as const)` | `"a" \| "b"`          | Validates membership            |
+| `t.array(t.string())`         | `string[]`            | Nested field builders supported |
+| `t.object({ ... })`           | `{ ... }`             | Nested objects                  |
+| `t.optional(t.string())`      | `string \| undefined` | Field may be absent             |
 
 All builders support `.coerce()` to enable automatic coercion before validation.
 
@@ -102,14 +107,14 @@ All builders support `.coerce()` to enable automatic coercion before validation.
 
 Adding `.coerce()` to any field enables automatic type coercion for common LLM output quirks:
 
-| Raw LLM value | Field type | Coerced to |
-|---|---|---|
-| `"9.5"` | `t.number().coerce()` | `9.5` |
-| `"5 minutes"` | `t.number().coerce()` | `5` |
-| `"yes"` / `"true"` | `t.boolean().coerce()` | `true` |
-| `"no"` / `"false"` | `t.boolean().coerce()` | `false` |
-| `"tag1, tag2"` | `t.array(t.string()).coerce()` | `["tag1", "tag2"]` |
-| `"Positive"` | `t.union([...]).coerce()` | `"positive"` (case-normalized) |
+| Raw LLM value      | Field type                     | Coerced to                     |
+| ------------------ | ------------------------------ | ------------------------------ |
+| `"9.5"`            | `t.number().coerce()`          | `9.5`                          |
+| `"5 minutes"`      | `t.number().coerce()`          | `5`                            |
+| `"yes"` / `"true"` | `t.boolean().coerce()`         | `true`                         |
+| `"no"` / `"false"` | `t.boolean().coerce()`         | `false`                        |
+| `"tag1, tag2"`     | `t.array(t.string()).coerce()` | `["tag1", "tag2"]`             |
+| `"Positive"`       | `t.union([...]).coerce()`      | `"positive"` (case-normalized) |
 
 Coercion is opt-in per field — fields without `.coerce()` are validated strictly.
 
@@ -124,7 +129,11 @@ const fullPrompt = buildPrompt("Summarize this article:", ArticleSchema);
 // → "Summarize this article:\n\nRespond ONLY with a valid JSON object matching..."
 
 // With retry feedback (passed automatically by withRetry):
-const retryPrompt = buildPrompt("Summarize:", ArticleSchema, "Field `score` expected number, got string.");
+const retryPrompt = buildPrompt(
+  "Summarize:",
+  ArticleSchema,
+  "Field `score` expected number, got string.",
+);
 ```
 
 ---
@@ -139,7 +148,7 @@ const result = parse(rawLLMOutput, ArticleSchema);
 if (result.success) {
   console.log(result.data); // InferOutput<typeof ArticleSchema>
 } else {
-  console.log(result.errors.code);        // "INVALID_JSON" | "MISSING_JSON" | "VALIDATION_FAILED"
+  console.log(result.errors.code); // "INVALID_JSON" | "MISSING_JSON" | "VALIDATION_FAILED"
   console.log(result.errors.fieldErrors); // [{ path, message, received, expected }]
 }
 ```
@@ -155,7 +164,10 @@ if (result.success) {
 Parse an incomplete JSON string — useful for streaming before the full response arrives.
 
 ```ts
-const partial = parsePartial('{"title":"Hello World","sentiment":"pos', ArticleSchema);
+const partial = parsePartial(
+  '{"title":"Hello World","sentiment":"pos',
+  ArticleSchema,
+);
 // {
 //   data: { title: "Hello World" },
 //   incomplete: ["sentiment", "keyPoints", "readingTimeMinutes"]
@@ -173,7 +185,7 @@ const result = await withRetry(
   (feedback) => callLLM(buildPrompt(userPrompt, ArticleSchema, feedback)),
   ArticleSchema,
   {
-    maxRetries: 3,           // total attempts (default: 3)
+    maxRetries: 3, // total attempts (default: 3)
     onRetry: (attempt, feedback) => {
       console.log(`Retry ${attempt + 1}:`, feedback);
     },
@@ -191,7 +203,7 @@ Accepts an `AsyncIterable<string>` of text chunks and yields progressive `Partia
 
 ```ts
 for await (const partial of parseStream(stream, ArticleSchema)) {
-  updateUI(partial.data);      // Partial<Article> — grows as more fields arrive
+  updateUI(partial.data); // Partial<Article> — grows as more fields arrive
   showPending(partial.incomplete); // string[] of field names not yet received
 }
 ```
@@ -201,7 +213,7 @@ for await (const partial of parseStream(stream, ArticleSchema)) {
 Use the built-in adapters to extract text deltas from provider-specific stream formats:
 
 ```ts
-import { openAIStream, anthropicStream } from "llm-schema";
+import { openAIStream, anthropicStream } from "typed-llm";
 
 // OpenAI
 const stream = await openai.chat.completions.create({ ..., stream: true });
@@ -216,16 +228,16 @@ for await (const partial of parseStream(anthropicStream(stream), schema)) { ... 
 
 ## Comparison
 
-| Feature | llm-schema | Zod alone | OpenAI Structured Outputs | Vercel AI SDK |
-|---|---|---|---|---|
-| Provider-agnostic | ✅ | ✅ | ❌ OpenAI only | ✅ |
-| Coercion layer | ✅ built-in | ❌ manual | ❌ | ❌ |
-| Retry with field feedback | ✅ | ❌ | ❌ | ❌ |
-| Streaming partial parse | ✅ | ❌ | ❌ | ✅ partial |
-| Zero runtime type duplication | ✅ | ✅ | ❌ schema + type separate | ✅ |
-| No framework lock-in | ✅ | ✅ | ❌ | ❌ requires AI SDK |
-| JSON extraction from prose | ✅ | ❌ | ❌ | ❌ |
-| Field-level error paths | ✅ | ✅ | ❌ | ❌ |
+| Feature                       | typed-llm   | Zod alone | OpenAI Structured Outputs | Vercel AI SDK      |
+| ----------------------------- | ----------- | --------- | ------------------------- | ------------------ |
+| Provider-agnostic             | ✅          | ✅        | ❌ OpenAI only            | ✅                 |
+| Coercion layer                | ✅ built-in | ❌ manual | ❌                        | ❌                 |
+| Retry with field feedback     | ✅          | ❌        | ❌                        | ❌                 |
+| Streaming partial parse       | ✅          | ❌        | ❌                        | ✅ partial         |
+| Zero runtime type duplication | ✅          | ✅        | ❌ schema + type separate | ✅                 |
+| No framework lock-in          | ✅          | ✅        | ❌                        | ❌ requires AI SDK |
+| JSON extraction from prose    | ✅          | ❌        | ❌                        | ❌                 |
+| Field-level error paths       | ✅          | ✅        | ❌                        | ❌                 |
 
 ---
 
@@ -235,7 +247,7 @@ Contributions welcome. The codebase is intentionally small — each feature live
 
 ```bash
 git clone <repo>
-cd llm-schema
+cd typed-llm
 npm install
 npm test          # run all tests with Vitest
 npm run typecheck # strict TypeScript check
@@ -243,6 +255,7 @@ npm run build     # build with tsdown
 ```
 
 Adding a new feature:
+
 1. Add or extend a file in `src/`
 2. Export it from `src/index.ts`
 3. Add tests in `tests/`
